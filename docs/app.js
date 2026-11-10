@@ -1,12 +1,26 @@
 (() => {
   const $ = (s, r = document) => r.querySelector(s);
   const $$ = (s, r = document) => [...r.querySelectorAll(s)];
-  const COLORS = ['#e5484d', '#3b82f6', '#f59e0b', '#10b981', '#8b5cf6', '#ec4899', '#14b8a6', '#f97316', '#64748b', '#84cc16'];
+  const COLORS = ['#ff6b81', '#5ea0ff', '#ffc857', '#4ee2b0', '#b794ff', '#ff8fd0', '#4dd8e6', '#ff9a5c', '#a3b1d6', '#a8e063'];
   const DEMO = new URLSearchParams(location.search).has('demo');
   const BASE = DEMO ? 'demo/' : 'data/';
   const PAGE = 24;
   const DAY = 86400000;
   const FMT_LABEL = { video: 'Video', short: 'Short', live: 'Live' };
+
+  // Linien und Punkte in Diagrammen bekommen einen leichten Leuchteffekt
+  if (window.Chart) {
+    Chart.defaults.font.family = '"Figtree", system-ui, sans-serif';
+    Chart.register({
+      id: 'glow',
+      beforeDatasetDraw(chart, args) {
+        if (chart.config.type === 'bar') return;
+        const ds = chart.data.datasets[args.index];
+        chart.ctx.save(); chart.ctx.shadowColor = ds.borderColor; chart.ctx.shadowBlur = 10;
+      },
+      afterDatasetDraw(chart) { if (chart.config.type !== 'bar') chart.ctx.restore(); },
+    });
+  }
 
   const state = { channels: [], history: {}, sel: new Set(), shown: PAGE, charts: {}, period: 28, tab: 'overview' };
 
@@ -345,7 +359,7 @@
         map.set(x.d, v);
       });
       return {
-        label: c.title, borderColor: c.color, backgroundColor: c.color, tension: .25, pointRadius: dates.length > 40 ? 0 : 3, spanGaps: true,
+        label: c.title, borderColor: c.color, backgroundColor: c.color, tension: .25, borderWidth: 2.5, pointRadius: dates.length > 40 ? 0 : 3, spanGaps: true,
         data: dates.map(d => map.get(d) ?? null),
       };
     });
