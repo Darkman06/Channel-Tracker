@@ -1,0 +1,37 @@
+name: Daten aktualisieren
+
+on:
+  schedule:
+    - cron: '17 4 * * *'   # täglich ca. 05:17/06:17 Uhr deutscher Zeit
+  workflow_dispatch:        # manuell startbar (Button "Run workflow")
+  push:
+    paths:
+      - 'channels.json'     # automatisch, sobald du Kanäle hinzufügst/entfernst
+
+permissions:
+  contents: write
+
+concurrency:
+  group: update-data
+  cancel-in-progress: false
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: YouTube-Daten abrufen
+        run: node scripts/fetch.mjs
+        env:
+          YOUTUBE_API_KEY: ${{ secrets.YOUTUBE_API_KEY }}
+      - name: Änderungen speichern
+        run: |
+          git config user.name "kanal-tracker-bot"
+          git config user.email "bot@users.noreply.github.com"
+          git add docs/data
+          git diff --cached --quiet || git commit -m "Daten $(date -u +%F)"
+          git pull --rebase
+          git push
