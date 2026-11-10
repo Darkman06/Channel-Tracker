@@ -83,3 +83,23 @@ input[type=search] { width: 100%; }
 .v-meta { font-size: 12.5px; color: var(--muted); }
 .v-ch { font-size: 12.5px; font-weight: 600; color: var(--c); }
 .more { display: block; margin: 20px auto 0; padding: 10px 22px; font: inherit; font-weight: 600; border-radius: 10px; border: 1px solid var(--line); background: var(--surface); color: var(--text); cursor: pointer; }
+
+/* ---- Erweiterungen v2 ---- */
+.period-bar { display: flex; align-items: center; gap: 10px; margin-top: 14px; }
+.seg { display: flex; gap: 4px; background: var(--surface2); padding: 3px; border-radius: 10px; overflow-x: auto; }
+.seg button { border: 0; background: none; color: var(--muted); font: inherit; font-size: 13px; font-weight: 600; padding: 6px 12px; border-radius: 8px; cursor: pointer; white-space: nowrap; }
+.seg button.on { background: var(--surface); color: var(--text); box-shadow: 0 1px 2px rgba(0,0,0,.15); }
+.two { display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 0 18px; }
+.two > div { min-width: 0; }
+tr.sec td { background: var(--surface2); color: var(--muted); font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: .04em; text-align: left; position: static; padding: 8px 12px; }
+td.partial { font-style: italic; color: var(--muted); }
+td.partial.best { color: var(--good); }
+td small, th small { color: var(--muted); font-size: 11px; font-weight: 400; }
+.note { margin: 8px 2px 0; }
+.v-meta.pos { color: var(--good); font-weight: 600; }
+.row + .chart-box, .row + p { margin-top: 12px; }
+#growth .row, #content .row { margin-top: 16px; }
+.tabs button { white-space: nowrap; }
+@media (max-width: 520px) { .tabs { overflow-x: auto; } .tabs button { padding: 8px 10px; font-size: 14px; } }
+
+[hidden] { display: none !important; }
