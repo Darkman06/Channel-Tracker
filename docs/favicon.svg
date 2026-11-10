@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#14286b"/><stop offset="1" stop-color="#050a1e"/></linearGradient>
+    <filter id="glow" x="-30%" y="-30%" width="160%" height="160%"><feGaussianBlur stdDeviation="2.2"/></filter>
+  </defs>
+  <rect width="64" height="64" rx="14" fill="url(#bg)"/>
+  <g transform="translate(32 32) scale(1.45) translate(-20 -20.5)" fill="none" stroke-linejoin="round">
+    <g filter="url(#glow)" stroke="#8fb8ff" stroke-width="3.2"><path d="M5 29 L15 11 L26 21 L35 7 M15 11 L19 34 L26 21 L19 34 L5 29"/>
+      <g fill="#8fb8ff" stroke="none"><circle cx="5" cy="29" r="3.4"/><circle cx="15" cy="11" r="3.4"/><circle cx="26" cy="21" r="3.4"/><circle cx="35" cy="7" r="3.4"/><circle cx="19" cy="34" r="3.4"/></g></g>
+    <path d="M5 29 L15 11 L26 21 L35 7 M15 11 L19 34 L26 21 L19 34 L5 29" stroke="#fff" stroke-width="2.2"/>
+    <g fill="#fff"><circle cx="5" cy="29" r="3"/><circle cx="15" cy="11" r="3"/><circle cx="26" cy="21" r="3"/><circle cx="35" cy="7" r="3"/><circle cx="19" cy="34" r="3"/></g>
+  </g>
+</svg>
