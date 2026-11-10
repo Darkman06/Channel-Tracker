@@ -209,7 +209,7 @@
     const H = key => c => { const g = hg.get(c.id); return g && g[key] != null ? { n: g[key], note: g.partial ? g.span + ' T.' : null } : null; };
     const S = fn => c => fn(ps.get(c.id), c);
     const rows = [
-      { sec: `Kanal-Entwicklung · letzte ${P} Tage` },
+      { sec: `Kanal-Entwicklung · letzte ${P} Tage`, collapse: 'Noch kein Verlauf gespeichert. Aufrufe, Abo-Zuwachs und die Veränderung zur Vorperiode erscheinen ab morgen, sobald der zweite Tagessnapshot vorliegt.' },
       { l: 'Aufrufe', get: H('views'), f: fmt, best: 1 },
       { l: 'Aufrufe pro Tag', get: H('viewsDay'), f: fmt, best: 1 },
       { l: 'Veränderung zur Vorperiode', get: H('deltaViews'), f: v => sgp(v, 0), best: 1 },
@@ -224,7 +224,7 @@
       { l: 'Ø Aufrufe je Video', get: S(p => p.avg), f: fmt, best: 1 },
       { l: 'Bestes Video', get: S(p => (p.best ? { n: p.best.views, text: `<span title="${esc(p.best.title)}">${fmt(p.best.views)}</span>` } : null)), f: fmt, best: 1 },
       { l: 'Like-Rate', get: S(p => p.likeRate), f: v => pct(v, 2), best: 1 },
-      { sec: 'Trend · Aufrufe aller abgerufenen Videos' },
+      { sec: 'Trend · Aufrufe aller abgerufenen Videos', collapse: 'Die Trendwerte pro Video erscheinen nach 1 Tag (24 Stunden), 7 Tagen und 28 Tagen.' },
       { l: 'Letzte 24 Stunden', get: c => sumG(c, 1), f: fmt, best: 1 },
       { l: 'Letzte 7 Tage', get: c => sumG(c, 7), f: fmt, best: 1 },
       { l: 'Letzte 28 Tage', get: c => sumG(c, 28), f: fmt, best: 1 },
@@ -244,24 +244,32 @@
       { l: 'Uploads pro Woche (90 T.)', get: c => c.perWeek90, f: v => de(v, 1), best: 1 },
     ];
     const noHist = ![...hg.values()].some(Boolean);
-    $('#overviewNote').textContent = noHist
-      ? 'Aufrufe- und Abo-Zuwachs erscheinen ab morgen: Sobald der zweite tägliche Snapshot gespeichert ist, füllen sich die Zeilen oben. Die 24-Stunden-, 7- und 28-Tage-Trendwerte der Videos folgen nach 1, 7 bzw. 28 Tagen.'
+    $('#overviewNote').textContent = noHist ? ''
       : 'Kursive Werte: Der gespeicherte Verlauf ist noch kürzer als der gewählte Zeitraum, die Zahl gilt für die angegebenen Tage. Aufrufe und Abos entstehen aus den täglichen Snapshots.';
     const cols = state.channels.length + 1;
-    $('#compare').innerHTML = `<thead><tr><th></th>${state.channels.map(c => `<th><span class="dot" style="background:${c.color}"></span>${esc(c.title)}</th>`).join('')}</tr></thead><tbody>` +
-      rows.map(r => {
-        if (r.sec) return `<tr class="sec"><td colspan="${cols}">${esc(r.sec)}</td></tr>`;
-        const cells = state.channels.map(c => {
-          const v = r.get(c);
-          if (v == null) return { n: null, html: '–' };
-          const o = typeof v === 'object' ? v : { n: v };
-          const html = o.text ?? (o.n == null ? '–' : r.f(o.n));
-          return { n: o.n, partial: !!o.note, html: html + (o.note ? ` <small title="Verlauf erst ${o.note}">(${o.note})</small>` : '') };
-        });
+    const evalRow = r => state.channels.map(c => {
+      const v = r.get(c);
+      if (v == null) return { n: null, html: '–' };
+      const o = typeof v === 'object' ? v : { n: v };
+      const html = o.text ?? (o.n == null ? '–' : r.f(o.n));
+      return { n: o.n, partial: !!o.note, html: html + (o.note ? ` <small title="Verlauf erst ${o.note}">(${o.note})</small>` : '') };
+    });
+    const groups = [];
+    for (const r of rows) { if (r.sec) groups.push({ head: r, items: [] }); else groups.at(-1).items.push(r); }
+    const body = groups.map(g => {
+      const head = `<tr class="sec"><td colspan="${cols}">${esc(g.head.sec)}</td></tr>`;
+      const evaluated = g.items.map(r => ({ r, cells: evalRow(r) }));
+      // Solange für eine Gruppe noch gar keine Werte vorliegen, steht dort nur ein Hinweis statt lauter Striche.
+      if (g.head.collapse && evaluated.every(e => e.cells.every(x => x.n == null && x.html === '–'))) {
+        return head + `<tr class="empty-row"><td colspan="${cols}">${esc(g.head.collapse)}</td></tr>`;
+      }
+      return head + evaluated.map(({ r, cells }) => {
         const nums = cells.map(x => x.n).filter(n => n != null);
         const best = r.best && state.channels.length > 1 && nums.length ? Math.max(...nums) : null;
         return `<tr><td>${esc(r.l)}</td>${cells.map(x => `<td class="${best != null && x.n === best ? 'best' : ''} ${x.partial ? 'partial' : ''}">${x.html}</td>`).join('')}</tr>`;
-      }).join('') + '</tbody>';
+      }).join('');
+    }).join('');
+    $('#compare').innerHTML = `<thead><tr><th></th>${state.channels.map(c => `<th><span class="dot" style="background:${c.color}"></span>${esc(c.title)}</th>`).join('')}</tr></thead><tbody>${body}</tbody>`;
 
     $('#barTitle1').textContent = `Aufrufe der Videos aus den letzten ${P} Tagen`;
     const bar = (id, data) => drawChart(id, {

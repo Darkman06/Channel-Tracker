@@ -151,3 +151,22 @@ input[type=search] { width: 100%; }
 .v-ch { font-size: 12.5px; font-weight: 700; color: var(--c); }
 .more { display: block; margin: 20px auto 0; padding: 10px 22px; font: 600 15px var(--body); border-radius: 99px; border: 1px solid var(--line); background: rgba(10, 20, 58, .55); color: var(--text); cursor: pointer; }
 .more:hover { border-color: var(--ice); box-shadow: 0 0 14px -3px rgba(160, 200, 255, .6); }
+
+/* Zeilen-Hinweis, solange noch keine Werte vorliegen */
+tr.empty-row td { position: static; background: transparent; white-space: normal; text-align: left; color: var(--muted); padding: 14px 12px; line-height: 1.45; }
+h1 { line-height: 1.15; }
+
+/* Hover: Boxen heben sich leicht ab (nur mit Maus, nicht bei reduzierter Bewegung) */
+.card, .chart-box, .table-wrap, .video { position: relative; }
+@media (hover: hover) and (prefers-reduced-motion: no-preference) {
+  .card, .chart-box, .table-wrap, .video {
+    transition: transform .22s cubic-bezier(.2, .7, .3, 1), box-shadow .22s, border-color .22s;
+  }
+  .card:hover, .video:hover { transform: scale(1.04); z-index: 3; }
+  .chart-box:hover, .table-wrap:hover { transform: scale(1.015); z-index: 3; }
+  .card:hover, .chart-box:hover, .table-wrap:hover {
+    border-color: rgba(188, 212, 255, .5);
+    box-shadow: 0 14px 44px -14px rgba(70, 130, 255, .6);
+  }
+  .video:hover { box-shadow: 0 14px 44px -14px var(--c); }
+}
