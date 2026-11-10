@@ -156,12 +156,9 @@ input[type=search] { width: 100%; }
 tr.empty-row td { position: static; background: transparent; white-space: normal; text-align: left; color: var(--muted); padding: 14px 12px; line-height: 1.45; }
 h1 { line-height: 1.15; }
 
-/* Hover: Boxen heben sich leicht ab (nur mit Maus, nicht bei reduzierter Bewegung) */
+/* Hover: Boxen heben sich leicht ab (alle Geräte mit Maus). Bei "Bewegung reduzieren" ohne weiche Animation, aber mit Vergrößerung. */
 .card, .chart-box, .table-wrap, .video { position: relative; }
-@media (hover: hover) and (prefers-reduced-motion: no-preference) {
-  .card, .chart-box, .table-wrap, .video {
-    transition: transform .22s cubic-bezier(.2, .7, .3, 1), box-shadow .22s, border-color .22s;
-  }
+@media (any-hover: hover) {
   .card:hover, .video:hover { transform: scale(1.04); z-index: 3; }
   .chart-box:hover, .table-wrap:hover { transform: scale(1.015); z-index: 3; }
   .card:hover, .chart-box:hover, .table-wrap:hover {
@@ -169,4 +166,9 @@ h1 { line-height: 1.15; }
     box-shadow: 0 14px 44px -14px rgba(70, 130, 255, .6);
   }
   .video:hover { box-shadow: 0 14px 44px -14px var(--c); }
+}
+@media (any-hover: hover) and (prefers-reduced-motion: no-preference) {
+  .card, .chart-box, .table-wrap, .video {
+    transition: transform .22s cubic-bezier(.2, .7, .3, 1), box-shadow .22s, border-color .22s;
+  }
 }
