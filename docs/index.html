@@ -1,0 +1,84 @@
+<!doctype html>
+<html lang="de">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#0f1115">
+  <title>Kanal-Tracker</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <header class="top">
+    <div class="wrap top-inner">
+      <div>
+        <h1>Kanal-Tracker</h1>
+        <div id="updated" class="muted small"></div>
+      </div>
+      <nav id="tabs" class="tabs" aria-label="Ansicht">
+        <button data-tab="overview" class="on">Übersicht</button>
+        <button data-tab="videos">Videos</button>
+        <button data-tab="growth">Wachstum</button>
+      </nav>
+    </div>
+  </header>
+
+  <main class="wrap">
+    <div id="banner" class="banner" hidden></div>
+    <div id="empty" class="empty" hidden></div>
+
+    <section id="overview" class="tab">
+      <div id="cards" class="cards"></div>
+      <h2>Vergleich</h2>
+      <div class="table-wrap"><table id="compare"></table></div>
+      <h2>Ø Aufrufe pro Video (letzte 10 Langvideos)</h2>
+      <div class="chart-box"><canvas id="barChart"></canvas></div>
+    </section>
+
+    <section id="videos" class="tab" hidden>
+      <div class="filters">
+        <input id="search" type="search" placeholder="Titel durchsuchen …" aria-label="Titel durchsuchen">
+        <div id="chips" class="chips"></div>
+        <div class="row">
+          <select id="format" aria-label="Format">
+            <option value="all">Alle Formate</option>
+            <option value="long">Nur Langvideos</option>
+            <option value="short">Nur Shorts</option>
+          </select>
+          <select id="range" aria-label="Zeitraum">
+            <option value="0">Alle Zeit</option>
+            <option value="30">Letzte 30 Tage</option>
+            <option value="90">Letzte 90 Tage</option>
+            <option value="365">Letztes Jahr</option>
+          </select>
+          <select id="sort" aria-label="Sortierung">
+            <option value="outlier">Überperformer zuerst</option>
+            <option value="views">Meiste Aufrufe</option>
+            <option value="recent">Neueste</option>
+            <option value="engagement">Engagement</option>
+          </select>
+        </div>
+        <p class="muted small" id="videoHint"></p>
+      </div>
+      <div id="videoList" class="videos"></div>
+      <button id="more" class="more" hidden>Mehr anzeigen</button>
+    </section>
+
+    <section id="growth" class="tab" hidden>
+      <div class="row">
+        <select id="metric" aria-label="Kennzahl">
+          <option value="subs">Abonnenten</option>
+          <option value="subsPct">Abo-Wachstum in %</option>
+          <option value="views">Gesamtaufrufe</option>
+        </select>
+      </div>
+      <p id="growthHint" class="muted small"></p>
+      <div class="chart-box tall"><canvas id="lineChart"></canvas></div>
+      <h2>Zuwachs</h2>
+      <div class="table-wrap"><table id="gains"></table></div>
+    </section>
+  </main>
+
+  <script src="vendor/chart.umd.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
