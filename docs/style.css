@@ -72,7 +72,7 @@ h2 { font-size: 17px; margin: 30px 0 10px; color: var(--ice); }
 .tabs button.on { color: #fff; border-bottom-color: var(--ice); text-shadow: 0 0 12px rgba(160, 200, 255, .8); box-shadow: 0 6px 12px -8px rgba(160, 200, 255, .9); }
 @media (max-width: 560px) { .tabs { width: 100%; } .tabs button { flex: 1; padding: 10px 6px 11px; font-size: 14px; } }
 
-main { padding-top: 6px; padding-bottom: 70px; }
+main.wrap { padding-top: 6px; padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px)); }
 .banner { margin: 14px 0 0; padding: 10px 14px; border-radius: 12px; background: var(--surface2); border: 1px dashed var(--muted); font-size: 13.5px; }
 .empty { margin: 30px 0; padding: 22px; border-radius: var(--radius); background: var(--surface); border: 1px solid var(--line); }
 .empty h2 { margin-top: 0; }
