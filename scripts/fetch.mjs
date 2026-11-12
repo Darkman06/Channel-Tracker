@@ -134,7 +134,20 @@ async function main() {
       };
       channels.push(entry);
       const series = (history[ch.id] ??= []);
-      const snap = { d: today, s: entry.subs, v: entry.views, n: entry.videoCount };
+      // YouTube aktualisiert die Gesamtaufrufe eines Kanals nur unregelmäßig. Deshalb wird der Aufrufe-Zuwachs
+      // zusätzlich aus den einzelnen Videos berechnet (vg) und die echte Zeit seit dem letzten Snapshot gespeichert (h, Stunden).
+      const prev = [...series].reverse().find(x => x.d !== today);
+      const snap = { d: today, t: now.toISOString(), s: entry.subs, v: entry.views, n: entry.videoCount };
+      if (prev) {
+        const prevT = prev.t ? Date.parse(prev.t) : Date.parse(prev.d + 'T05:00:00Z');
+        let vg = 0;
+        for (const v of videos) {
+          if (v.g1 != null) vg += v.g1;
+          else if (Date.parse(v.published) > prevT && (vh[v.id] || []).every(([d]) => d === todayNum)) vg += v.views; // seitdem neu erschienen
+        }
+        snap.vg = vg;
+        snap.h = Math.round(((now.getTime() - prevT) / 3600000) * 10) / 10;
+      }
       const idx = series.findIndex(x => x.d === today);
       if (idx >= 0) series[idx] = snap; else series.push(snap);
       console.log(`✓ ${entry.title}: ${videos.length} Videos`);

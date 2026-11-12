@@ -145,12 +145,21 @@
     if (span < 1) return null;
     const out = { span, partial, views: last.v - base.v, subs: last.s != null && base.s != null ? last.s - base.s : null };
     out.viewsDay = out.views / span;
+    // Bevorzugt: Aufrufe-Zuwachs aus den einzelnen Videos (zuverlässiger als die Kanal-Gesamtzahl) mit echter Zeitspanne
+    const seg = h.slice(h.indexOf(base) + 1);
+    const vidSum = part => (part.length && part.every(x => x.vg != null) ? { views: sum(part.map(x => x.vg)), hours: sum(part.map(x => x.h ?? 24)) } : null);
+    const vs = vidSum(seg);
+    if (vs) { out.views = vs.views; out.viewsDay = vs.views / Math.max(vs.hours / 24, 1 / 24); out.fromVideos = true; }
     out.subsDay = out.subs != null ? out.subs / span : null;
     out.subsPct = out.subs != null && base.s ? out.subs / base.s : null;
     if (!partial) {
       let b2 = null;
       for (const x of h) if (dnum(x.d) <= target - P) b2 = x;
-      if (b2) { const prev = base.v - b2.v; out.deltaViews = prev > 0 ? out.views / prev - 1 : null; }
+      if (b2) {
+        const pv = vidSum(h.slice(h.indexOf(b2) + 1, h.indexOf(base) + 1));
+        const prev = vs ? pv?.views : base.v - b2.v;
+        out.deltaViews = prev > 0 ? out.views / prev - 1 : null;
+      }
     }
     return out;
   }
@@ -245,7 +254,7 @@
     ];
     const noHist = ![...hg.values()].some(Boolean);
     $('#overviewNote').textContent = noHist ? ''
-      : 'Kursive Werte: Der gespeicherte Verlauf ist noch kürzer als der gewählte Zeitraum, die Zahl gilt für die angegebenen Tage. Aufrufe und Abos entstehen aus den täglichen Snapshots.';
+      : 'Kursive Werte: Der gespeicherte Verlauf ist noch kürzer als der gewählte Zeitraum, die Zahl gilt für die angegebenen Tage. Aufrufe und Abos entstehen aus den täglichen Snapshots. Die Aufrufe im Zeitraum werden aus den einzelnen Videos (bis ca. 400 Tage alt) berechnet, weil YouTube die Gesamtaufrufe eines Kanals nur unregelmäßig aktualisiert. Abozahlen rundet YouTube, sie ändern sich deshalb nur in Stufen.';
     const cols = state.channels.length + 1;
     const evalRow = r => state.channels.map(c => {
       const v = r.get(c);
@@ -362,7 +371,7 @@
         else {
           if (i === 0) return;
           const gap = dnum(x.d) - dnum(h[i - 1].d) || 1;
-          v = metric === 'subsDay' ? (x.s != null && h[i - 1].s != null ? (x.s - h[i - 1].s) / gap : null) : (x.v - h[i - 1].v) / gap;
+          v = metric === 'subsDay' ? (x.s != null && h[i - 1].s != null ? (x.s - h[i - 1].s) / gap : null) : (x.vg != null ? x.vg / Math.max((x.h ?? 24) / 24, 1 / 24) : (x.v - h[i - 1].v) / gap);
         }
         map.set(x.d, v);
       });
