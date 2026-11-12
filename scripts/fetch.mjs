@@ -87,16 +87,33 @@ async function fetchVideos(uploadsId, maxVideos, horizonDays) {
   return videos.sort((a, b) => b.published.localeCompare(a.published));
 }
 
-// Hängt den heutigen Snapshot an und berechnet Aufrufe-Zuwachs der letzten 1/7/28 Tage pro Video.
-function applyVideoTrends(videos, vh, today) {
+// Aufrufe eines Videos im Alter von `hours` Stunden, linear zwischen den zwei umliegenden Snapshots interpoliert.
+// Einträge in vh: [Tagesnummer, Aufrufe, Minuten seit 1970 (optional; ältere Einträge ~05:00 UTC)]
+function viewsAtAge(arr, pubMs, hours) {
+  const target = pubMs + hours * 3600000;
+  const pts = arr.map(([d, v, m]) => [m ? m * 60000 : d * DAY + 5 * 3600000, v]).sort((a, b) => a[0] - b[0]);
+  let lo = null, hi = null;
+  for (const p of pts) { if (p[0] <= target) lo = p; else { hi = p; break; } }
+  if (!lo || !hi || lo[0] < pubMs || hi[0] - lo[0] > 3 * DAY) return null;
+  return Math.round(lo[1] + ((hi[1] - lo[1]) * (target - lo[0])) / (hi[0] - lo[0]));
+}
+
+// Hängt den heutigen Snapshot an, berechnet Aufrufe-Zuwachs der letzten 1/7/28 Tage
+// und die Start-Werte (Aufrufe nach 24 Std., 3 und 7 Tagen) pro Video.
+function applyVideoTrends(videos, vh, today, nowMin, oldById) {
   for (const v of videos) {
     const arr = (vh[v.id] ??= []);
     const last = arr.at(-1);
-    if (last && last[0] === today) last[1] = v.views; else arr.push([today, v.views]);
+    if (last && last[0] === today) { last[1] = v.views; last[2] = nowMin; } else arr.push([today, v.views, nowMin]);
     for (const w of [1, 7, 28]) {
       // Snapshot, der mindestens w Tage alt ist (bis 3 Tage Toleranz, falls ein Lauf ausgefallen ist)
       const base = [...arr].reverse().find(([d]) => d <= today - w && d >= today - w - 3);
       if (base) v[`g${w}`] = v.views - base[1];
+    }
+    const pub = Date.parse(v.published), prev = oldById.get(v.id);
+    for (const [k, h] of [['e1', 24], ['e3', 72], ['e7', 168]]) {
+      const val = viewsAtAge(arr, pub, h) ?? prev?.[k] ?? null; // einmal berechnete Werte bleiben erhalten
+      if (val != null) v[k] = val;
     }
   }
 }
@@ -106,6 +123,7 @@ async function main() {
   const maxVideos = config.maxVideosPerChannel ?? 500;
   const horizonDays = config.historyDays ?? 400;
   const old = await readJson(path.join(DATA, 'latest.json'), { channels: [] });
+  const oldById = new Map((old.channels || []).flatMap(c => c.videos || []).map(v => [v.id, v]));
   const history = await readJson(path.join(DATA, 'history.json'), {});
   const vh = await readJson(path.join(DATA, 'video-history.json'), {});
   const now = new Date();
@@ -117,7 +135,7 @@ async function main() {
     try {
       const ch = await resolveChannel(ref);
       const videos = await fetchVideos(ch.contentDetails.relatedPlaylists.uploads, maxVideos, horizonDays);
-      applyVideoTrends(videos, vh, todayNum);
+      applyVideoTrends(videos, vh, todayNum, Math.round(now.getTime() / 60000), oldById);
       const stats = ch.statistics;
       const entry = {
         id: ch.id,

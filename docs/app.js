@@ -1,7 +1,8 @@
 (() => {
   const $ = (s, r = document) => r.querySelector(s);
   const $$ = (s, r = document) => [...r.querySelectorAll(s)];
-  const COLORS = ['#ff6b81', '#5ea0ff', '#ffc857', '#4ee2b0', '#b794ff', '#ff8fd0', '#4dd8e6', '#ff9a5c', '#a3b1d6', '#a8e063'];
+  // Kanalfarben, geprüft auf Kontrast und Farbfehlsichtigkeit vor dem dunklen Hintergrund (feste Reihenfolge)
+  const COLORS = ['#ee5a6f', '#4b8df2', '#bb841f', '#22ad7f', '#9276e8', '#c9773a', '#2ba4bd', '#d9649b'];
   const DEMO = new URLSearchParams(location.search).has('demo');
   const BASE = DEMO ? 'demo/' : 'data/';
   const PAGE = 24;
@@ -22,7 +23,9 @@
     });
   }
 
-  const state = { channels: [], history: {}, sel: new Set(), shown: PAGE, charts: {}, period: 28, tab: 'overview' };
+  const state = { channels: [], history: {}, sel: new Set(), shown: PAGE, charts: {}, period: 28, tab: 'overview', saved: {}, byId: new Map(), wallShown: 24 };
+  const BERLIN = new Intl.DateTimeFormat('en-US', { timeZone: 'Europe/Berlin', weekday: 'short', hour: 'numeric', hourCycle: 'h23' });
+  const WD = { Mon: 0, Tue: 1, Wed: 2, Thu: 3, Fri: 4, Sat: 5, Sun: 6 };
 
   // ---------- Hilfsfunktionen ----------
   const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
@@ -68,6 +71,7 @@
       state.history = history;
       state.channels = latest.channels.map((c, i) => enrich(c, i));
       state.sel = new Set(state.channels.map(c => c.id));
+      state.byId = new Map(state.channels.flatMap(c => c.videos.map(v => [v.id, v])));
       $('#updated').textContent = 'Stand: ' + new Date(latest.updated).toLocaleString('de-DE', { dateStyle: 'medium', timeStyle: 'short' });
       if (latest.demo) { const b = $('#banner'); b.hidden = false; b.textContent = 'Das sind erfundene Demo-Daten. Deine echten Kanäle siehst du ohne „?demo“ in der Adresse.'; }
       init();
@@ -91,6 +95,9 @@
       v.like = v.likes != null && v.views ? v.likes / v.views : null;
       v.eng = v.likes != null && v.views ? (v.likes + (v.comments || 0)) / v.views : null;
       v.ch = c;
+      const parts = BERLIN.formatToParts(new Date(v.published));
+      v.wd = WD[parts.find(p => p.type === 'weekday').value];
+      v.hr = +parts.find(p => p.type === 'hour').value % 24;
     }
     c.med = {}; c.cnt = {};
     for (const f of ['video', 'short', 'live']) {
@@ -100,6 +107,12 @@
       c.med[f] = all.length ? median((mature.length >= 5 ? mature : all).map(v => v.views)) : null;
     }
     for (const v of c.videos) { const m = c.med[v.fmt]; v.outlier = m && c.cnt[v.fmt] >= 5 ? v.views / m : 0; }
+    // Start-Werte: Median-Aufrufe nach 24 Std. / 3 / 7 Tagen je Format (ab 3 Videos)
+    c.early = {};
+    for (const f of ['video', 'short', 'live']) {
+      c.early[f] = {};
+      for (const k of ['e1', 'e3', 'e7']) { const xs = c.videos.filter(v => v.fmt === f && v[k] != null).map(v => v[k]); c.early[f][k] = xs.length >= 3 ? median(xs) : null; }
+    }
 
     const vids = c.videos.filter(v => v.fmt === 'video');
     const rated = c.videos.slice(0, 20).filter(v => v.likes != null);
@@ -173,6 +186,8 @@
       $$('#periods button').forEach(x => x.classList.toggle('on', x === b));
       renderCurrent();
     }));
+    initSaved();
+    initIdeas();
     buildVideoFilters();
     $('#metric').addEventListener('change', renderGrowth);
     $('#cformat').addEventListener('change', renderContent);
@@ -192,6 +207,7 @@
     if (state.tab === 'overview') renderOverview();
     if (state.tab === 'growth') renderGrowth();
     if (state.tab === 'content') renderContent();
+    if (state.tab === 'ideas') renderIdeas();
   }
 
   // ---------- Übersicht ----------
@@ -331,7 +347,7 @@
     $('#videoHint').textContent = `${list.length} Videos${hint}`;
     $('#videoList').innerHTML = list.slice(0, state.shown).map(v => {
       const th = thumbUrl(v);
-      return `<a class="video" href="https://www.youtube.com/watch?v=${esc(v.id)}" target="_blank" rel="noopener" style="--c:${v.ch.color}">
+      return `<div class="video" style="--c:${v.ch.color}"><a class="v-link" href="https://www.youtube.com/watch?v=${esc(v.id)}" target="_blank" rel="noopener">
         <div class="thumb">${th ? `<img src="${th}" alt="" loading="lazy">` : ''}
           <span class="dur">${v.fmt === 'video' ? '' : FMT_LABEL[v.fmt] + ' · '}${dur(v.duration)}</span>
           ${v.outlier >= 1.5 && v.age >= 3 ? `<span class="badge">×${de(v.outlier, 1)}</span>` : ''}
@@ -342,7 +358,7 @@
           <div class="v-meta">${fmt(v.views)} Aufrufe · ${ago(v.age)}</div>
           <div class="v-meta">${fmt(v.perDay)}/Tag${v.like != null ? ` · ${pct(v.like, 1)} Likes` : ''}${v.comments != null ? ` · ${fmt(v.comments)} Komm.` : ''}</div>
           ${v.g7 != null ? `<div class="v-meta pos">+${fmt(v.g7)} in 7 Tagen</div>` : ''}
-        </div></a>`;
+        </div></a>${saveBtn(v.id)}</div>`;
     }).join('');
     $('#more').hidden = list.length <= state.shown;
   }
@@ -448,7 +464,210 @@
       ['Analysierte Videos', vs => vs.length, v => de(v)],
     ];
     $('#titleTable').innerHTML = head + '<tbody>' + tp.map(([l, fn, ff]) => `<tr><td>${l}</td>${chs.map(({ vs }) => `<td>${vs.length ? ff(fn(vs)) : '–'}</td>`).join('')}</tr>`).join('') + '</tbody>';
+    renderStart(f);
+    renderSlots(f);
   }
+
+  // ---------- Merkliste ----------
+  const SAVE_KEY = 'ct-merkliste-v1';
+  const loadSaved = () => { try { return JSON.parse(localStorage.getItem(SAVE_KEY)) || {}; } catch { return {}; } };
+  const persist = () => { try { localStorage.setItem(SAVE_KEY, JSON.stringify(state.saved)); } catch { /* Speicher nicht verfügbar */ } };
+  const STAR = on => `<svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path d="M12 3.5l2.6 5.5 6 .8-4.4 4.1 1.1 5.9L12 17l-5.3 2.8 1.1-5.9-4.4-4.1 6-.8z" fill="${on ? 'currentColor' : 'none'}" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/></svg>`;
+  const saveLabel = on => (on ? 'Von der Merkliste entfernen' : 'Auf die Merkliste setzen');
+  const saveBtn = id => { const on = !!state.saved[id]; return `<button type="button" class="save ${on ? 'on' : ''}" data-save="${esc(id)}" aria-pressed="${on}" title="${saveLabel(on)}" aria-label="${saveLabel(on)}">${STAR(on)}</button>`; };
+  function toggleSave(id) {
+    if (state.saved[id]) delete state.saved[id];
+    else {
+      const v = state.byId.get(id);
+      if (!v) return;
+      state.saved[id] = { id, title: v.title, ch: v.ch.title, color: v.ch.color, views: v.views, published: v.published, fmt: v.fmt, note: '', added: new Date().toISOString() };
+    }
+    persist();
+    const on = !!state.saved[id];
+    $$('[data-save]').filter(b => b.dataset.save === id).forEach(b => { b.classList.toggle('on', on); b.setAttribute('aria-pressed', on); b.title = saveLabel(on); b.setAttribute('aria-label', saveLabel(on)); b.innerHTML = STAR(on); });
+    if (state.tab === 'ideas') renderSaved();
+  }
+  function renderSaved() {
+    const items = Object.values(state.saved).sort((a, b) => b.added.localeCompare(a.added));
+    $('#savedCount').textContent = items.length ? `${items.length} ${items.length === 1 ? 'Video' : 'Videos'}` : '';
+    $('#copySaved').disabled = $('#exportSaved').disabled = !items.length;
+    $('#savedList').innerHTML = items.length ? items.map(s => {
+      const live = state.byId.get(s.id);
+      const url = `https://www.youtube.com/watch?v=${esc(s.id)}`;
+      const x = live && live.outlier && live.age >= 3 ? ` · ×${de(live.outlier, 1)}` : '';
+      return `<article class="saved" style="--c:${s.color}">
+        <a class="saved-thumb" href="${url}" target="_blank" rel="noopener" tabindex="-1">${DEMO ? '' : `<img src="https://i.ytimg.com/vi/${esc(s.id)}/mqdefault.jpg" alt="" loading="lazy">`}</a>
+        <div class="saved-body">
+          <a class="v-title" href="${url}" target="_blank" rel="noopener">${esc(s.title)}</a>
+          <div class="v-meta"><span class="v-ch">${esc(s.ch)}</span> · ${fmt(live ? live.views : s.views)} Aufrufe${x}</div>
+          <textarea data-note="${esc(s.id)}" rows="2" placeholder="Was gefällt dir daran? Idee für dein Video …" aria-label="Notiz zu ${esc(s.title)}">${esc(s.note)}</textarea>
+        </div>
+        ${saveBtn(s.id)}
+      </article>`;
+    }).join('') : '<p class="muted empty-note">Markiere Videos mit dem Stern, dann landen sie hier. Zu jedem kannst du eine Notiz schreiben. Die Merkliste wird in diesem Browser gespeichert. Mit „Exportieren“ und „Importieren“ bringst du sie auf ein anderes Gerät.</p>';
+  }
+  function savedAsText() {
+    return Object.values(state.saved).sort((a, b) => b.added.localeCompare(a.added))
+      .map(s => `- [${s.title}](https://www.youtube.com/watch?v=${s.id}) – ${s.ch}${s.note.trim() ? `\n  - ${s.note.trim().replace(/\s*\n\s*/g, ' ')}` : ''}`).join('\n');
+  }
+  function flash(btn, text) { const old = btn.textContent; btn.textContent = text; setTimeout(() => (btn.textContent = old), 1800); }
+  function initSaved() {
+    state.saved = loadSaved();
+    document.addEventListener('click', e => {
+      const b = e.target.closest('[data-save]');
+      if (b) { e.preventDefault(); e.stopPropagation(); toggleSave(b.dataset.save); return; }
+      const t = e.target.closest('[data-term]');
+      if (t) { $('#search').value = t.dataset.term; $('#sort').value = 'outlier'; $('#format').value = 'all'; $('#range').value = '0'; state.shown = PAGE; showTab('videos'); renderVideos(); }
+    });
+    document.addEventListener('input', e => {
+      const t = e.target.closest('[data-note]');
+      if (t && state.saved[t.dataset.note]) { state.saved[t.dataset.note].note = t.value; persist(); }
+    });
+    $('#copySaved').addEventListener('click', async e => {
+      const text = savedAsText(), btn = e.currentTarget;
+      try { await navigator.clipboard.writeText(text); flash(btn, 'Kopiert'); }
+      catch { const ta = document.createElement('textarea'); ta.value = text; document.body.appendChild(ta); ta.select(); try { document.execCommand('copy'); flash(btn, 'Kopiert'); } catch { flash(btn, 'Kopieren nicht möglich'); } ta.remove(); }
+    });
+    $('#exportSaved').addEventListener('click', () => {
+      const blob = new Blob([JSON.stringify(state.saved, null, 2)], { type: 'application/json' });
+      const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = 'merkliste.json'; a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+    });
+    $('#importSaved').addEventListener('change', async e => {
+      const file = e.target.files[0]; if (!file) return;
+      try {
+        const data = JSON.parse(await file.text());
+        for (const [id, s] of Object.entries(data)) {
+          if (!s || !s.title) continue;
+          if (!state.saved[id]) state.saved[id] = { note: '', added: new Date().toISOString(), ...s, id };
+          else if (!state.saved[id].note && s.note) state.saved[id].note = s.note;
+        }
+        persist(); renderSaved(); renderWall(); renderVideos();
+      } catch { alert('Die Datei konnte nicht gelesen werden. Wähle eine merkliste.json, die du vorher exportiert hast.'); }
+      e.target.value = '';
+    });
+  }
+
+  // ---------- Ideen: Filter, Begriffe, Thumbnail-Wand ----------
+  function ideaVideos() {
+    const ch = $('#iChannel').value, f = $('#iFormat').value, r = +$('#iRange').value;
+    return state.channels.filter(c => ch === 'all' || c.id === ch).flatMap(c => c.videos)
+      .filter(v => (f === 'all' || v.fmt === f) && (!r || v.age <= r));
+  }
+  const STOP = new Set(('der die das und ich du er sie es wir ihr ein eine einen einem einer eines zu zum zur im in ins mit auf für von vom ist sind war nicht so wie was wer wo mal noch nur auch aber oder wenn dann den dem des am an als bei bis aus um über unter nach vor hat habe haben hab bin bist wird werden mein meine meinen meiner dein deine sein seine mich mir dich dir uns euch man kein keine ja nein jetzt hier da dass weil sich sehr mehr alle alles immer schon ganz wieder gegen ohne doch ' +
+    'the a an and or of to in on for with is it this that i you he she we they my your his her our their me be are was were am do does did not no so but if at by from as up out about what how why who when all just can will get got have has had its it\'s i\'m im vs ft feat shorts short part teil ep episode').split(' '));
+  function termsOf(title) {
+    const w = (title.toLowerCase().match(/[\p{L}\p{N}]+(?:['’][\p{L}]+)?/gu) || []).map(x => x.replace(/’/g, "'"));
+    const set = new Set();
+    w.forEach((t, i) => {
+      if (!STOP.has(t) && t.length >= 3 && !/^\d+$/.test(t)) set.add(t);
+      const a = w[i - 1];
+      if (a && !STOP.has(a) && !STOP.has(t) && a.length >= 2 && t.length >= 2) set.add(a + ' ' + t);
+    });
+    return set;
+  }
+  function renderTopics() {
+    const vids = ideaVideos().filter(v => v.age >= 3 && v.outlier > 0);
+    const byOut = [...vids].sort((a, b) => b.outlier - a.outlier);
+    const topSet = new Set(byOut.slice(0, Math.max(1, Math.round(vids.length * 0.25))).map(v => v.id));
+    const map = new Map();
+    for (const v of vids) for (const t of termsOf(v.title)) { if (!map.has(t)) map.set(t, []); map.get(t).push(v); }
+    const minN = Math.max(3, Math.round(vids.length * 0.01));
+    let rows = [...map].filter(([, vs]) => vs.length >= minN).map(([t, vs]) => ({
+      t, n: vs.length, med: median(vs.map(v => v.outlier)), top: vs.filter(v => topSet.has(v.id)).length / vs.length,
+      chans: state.channels.filter(c => vs.some(v => v.ch === c)), best: vs.reduce((b, v) => (v.outlier > b.outlier ? v : b)),
+    }));
+    // Ein Wortpaar, das genauso oft vorkommt wie eines seiner Wörter, macht das Einzelwort überflüssig
+    const pairs = rows.filter(r => r.t.includes(' '));
+    rows = rows.filter(r => r.t.includes(' ') || !pairs.some(p => p.n === r.n && p.t.split(' ').includes(r.t)));
+    const sort = $('#topicSort').value;
+    rows.sort(sort === 'n' ? (a, b) => b.n - a.n || b.med - a.med : sort === 'weak' ? (a, b) => a.med - b.med : (a, b) => b.med - a.med || b.n - a.n);
+    rows = rows.slice(0, 25);
+    $('#topicHint').textContent = vids.length
+      ? `${vids.length} Videos ausgewertet, Begriffe ab ${minN} Videos. ×-Wert 1,0 entspricht einem typischen Video des jeweiligen Kanals. „Im besten Viertel“ liegt im Schnitt bei 25 %, alles darüber spricht für den Begriff. Klick auf einen Begriff zeigt die Videos dazu.`
+      : 'Für diese Auswahl gibt es noch keine Videos, die älter als 3 Tage sind.';
+    $('#topicTable').innerHTML = rows.length ? `<thead><tr><th>Begriff</th><th>Videos</th><th>Median ×-Wert</th><th>Im besten Viertel</th><th>Kanäle</th><th>Bestes Video</th></tr></thead><tbody>` + rows.map(r => `<tr>
+        <td><button type="button" class="term" data-term="${esc(r.t)}">${esc(r.t)}</button></td>
+        <td>${de(r.n)}</td>
+        <td class="${r.med >= 1.3 ? 'best' : r.med < 0.8 ? 'weak' : ''}">×${de(r.med, 2)}</td>
+        <td class="${r.top >= 0.4 ? 'best' : r.top < 0.15 ? 'weak' : ''}">${pct(r.top, 0)}</td>
+        <td class="dots">${r.chans.map(c => `<span class="dot" style="background:${c.color};color:${c.color}" title="${esc(c.title)}"></span>`).join('')}<span class="sr">${esc(r.chans.map(c => c.title).join(', '))}</span></td>
+        <td class="best-video"><a href="https://www.youtube.com/watch?v=${esc(r.best.id)}" target="_blank" rel="noopener" title="${esc(r.best.title)}">×${de(r.best.outlier, 1)} · ${esc(r.best.title)}</a></td>
+      </tr>`).join('') + '</tbody>' : '';
+  }
+  function renderWall() {
+    const sort = $('#wallSort').value;
+    let list = ideaVideos();
+    if (sort === 'outlier') list = list.filter(v => v.age >= 3);
+    const key = { outlier: v => v.outlier, views: v => v.views, recent: v => +new Date(v.published) }[sort];
+    list.sort((a, b) => key(b) - key(a));
+    $('#wall').innerHTML = list.slice(0, state.wallShown).map(v => `<div class="tile" style="--c:${v.ch.color}">
+        <a href="https://www.youtube.com/watch?v=${esc(v.id)}" target="_blank" rel="noopener">
+          <div class="tile-img">${DEMO ? '' : `<img src="https://i.ytimg.com/vi/${esc(v.id)}/hqdefault.jpg" alt="" loading="lazy">`}
+            ${v.outlier && v.age >= 3 ? `<span class="badge">×${de(v.outlier, 1)}</span>` : ''}
+            <span class="dur">${v.fmt === 'video' ? '' : FMT_LABEL[v.fmt] + ' · '}${dur(v.duration)}</span>
+          </div>
+          <div class="tile-cap">${esc(v.title)}</div>
+          <div class="tile-meta"><span class="v-ch">${esc(v.ch.title)}</span> · ${fmt(v.views)} Aufrufe · ${ago(v.age)}</div>
+        </a>${saveBtn(v.id)}</div>`).join('') || '<p class="muted">Keine Videos für diese Auswahl.</p>';
+    $('#wallMore').hidden = list.length <= state.wallShown;
+  }
+  function renderIdeas() { renderSaved(); renderTopics(); renderWall(); }
+  function initIdeas() {
+    const opts = '<option value="all">Alle Kanäle</option>' + state.channels.map(c => `<option value="${esc(c.id)}">${esc(c.title)}</option>`).join('');
+    $('#iChannel').innerHTML = opts; $('#slotChannel').innerHTML = opts;
+    ['iChannel', 'iFormat', 'iRange'].forEach(id => $('#' + id).addEventListener('change', () => { state.wallShown = 24; renderTopics(); renderWall(); }));
+    $('#topicSort').addEventListener('change', renderTopics);
+    $('#wallSort').addEventListener('change', () => { state.wallShown = 24; renderWall(); });
+    $('#wallMore').addEventListener('click', () => { state.wallShown += 24; renderWall(); });
+    $('#slotChannel').addEventListener('change', () => renderSlots($('#cformat').value));
+  }
+
+  // ---------- Content: Start neuer Videos ----------
+  const STARTS = [['e1', 24, '24 Std.'], ['e3', 72, '3 Tage'], ['e7', 168, '7 Tage']];
+  function renderStart(f) {
+    const anyData = state.channels.some(c => c.videos.some(v => v.fmt === f && v.e1 != null));
+    const lines = state.channels.map(c => ({ c, vals: STARTS.map(([k]) => c.early[f][k]) }));
+    const hasCurve = lines.some(l => l.vals.some(x => x != null));
+    $('#startHint').textContent = anyData
+      ? 'Median-Aufrufe der Videos nach 24 Stunden, 3 und 7 Tagen (ab 3 Videos pro Kanal). In der Tabelle zeigt der ×-Wert, wie ein neues Video im Vergleich zu diesem Kanal-Median startet.'
+      : 'Die Start-Werte entstehen aus den täglichen Snapshots. Sie erscheinen für Videos, die seit dem 10.11. veröffentlicht wurden: nach 24 Stunden der erste Wert, nach 7 Tagen alle drei. Für die Kanal-Kurve braucht es mindestens 3 solcher Videos pro Kanal.';
+    $('#startBox').hidden = !hasCurve;
+    if (hasCurve) {
+      drawChart('startChart', {
+        type: 'line',
+        data: { labels: STARTS.map(s => s[2]), datasets: lines.map(({ c, vals }) => ({ label: c.title, data: vals, borderColor: c.color, backgroundColor: c.color, borderWidth: 2, pointRadius: 4, pointHoverRadius: 6, tension: .2, spanGaps: true })) },
+        options: { ...chartBase(), interaction: { mode: 'index', intersect: false }, plugins: { legend: { labels: { color: css('--text'), usePointStyle: true } }, tooltip: { callbacks: { label: ctx => `${ctx.dataset.label}: ${ctx.parsed.y == null ? '–' : fmt(ctx.parsed.y)}` } } } },
+      });
+    }
+    const recent = state.channels.flatMap(c => c.videos).filter(v => v.fmt === f && v.age <= 21).sort((a, b) => a.age - b.age).slice(0, 15);
+    $('#startWrap').hidden = !recent.length;
+    $('#startTable').innerHTML = `<thead><tr><th>Neue Videos</th>${STARTS.map(s => `<th>${s[2]}</th>`).join('')}</tr></thead><tbody>` + recent.map(v => {
+      const cells = STARTS.map(([k, h]) => {
+        if (v[k] == null) return `<td class="muted" title="${v.age * 24 < h ? 'Das Video ist noch jünger' : 'Zu diesem Zeitpunkt gab es noch keinen Snapshot'}">${v.age * 24 < h ? '…' : '–'}</td>`;
+        const m = v.ch.early[f][k], r = m ? v[k] / m : null;
+        return `<td>${fmt(v[k])}${r != null ? ` <small class="${r >= 1.3 ? 'good' : r < 0.7 ? 'weak' : ''}">×${de(r, 1)}</small>` : ''}</td>`;
+      }).join('');
+      return `<tr><td><span class="dot" style="background:${v.ch.color};color:${v.ch.color}"></span><a class="tt" href="https://www.youtube.com/watch?v=${esc(v.id)}" target="_blank" rel="noopener" title="${esc(v.ch.title)}: ${esc(v.title)}">${esc(v.title)}</a></td>${cells}</tr>`;
+    }).join('') + '</tbody>';
+  }
+
+  // ---------- Content: Upload-Zeitpunkt ----------
+  const SLOT_DAYS = ['Mo', 'Di', 'Mi', 'Do', 'Fr', 'Sa', 'So'];
+  function renderSlots(f) {
+    const ch = $('#slotChannel').value;
+    const vids = state.channels.filter(c => ch === 'all' || c.id === ch).flatMap(c => c.videos).filter(v => v.fmt === f && v.age >= 3 && v.outlier > 0);
+    const grid = SLOT_DAYS.map(() => Array.from({ length: 8 }, () => []));
+    vids.forEach(v => grid[v.wd][Math.floor(v.hr / 3)].push(v.outlier));
+    $('#slotTable').innerHTML = `<thead><tr><th></th>${Array.from({ length: 8 }, (_, i) => `<th>${i * 3}–${i * 3 + 3}</th>`).join('')}</tr></thead><tbody>` + grid.map((row, d) => `<tr><td>${SLOT_DAYS[d]}</td>${row.map((xs, i) => {
+      const slot = `${SLOT_DAYS[d]} ${i * 3}–${i * 3 + 3} Uhr`;
+      if (!xs.length) return `<td class="cell empty" title="${slot}: keine Uploads"></td>`;
+      if (xs.length < 2) return `<td class="cell few" title="${slot}: 1 Video, zu wenig für eine Aussage"><small>1</small></td>`;
+      const m = median(xs), a = Math.max(0.08, Math.min(0.9, (m - 0.4) / 1.8));
+      return `<td class="cell" style="background:rgba(94,160,255,${a.toFixed(2)});color:${a > 0.5 ? '#050a1e' : 'var(--text)'}" title="${slot}: ${xs.length} Videos, Median ×${de(m, 2)}">×${de(m, 1)}<small>${xs.length}</small></td>`;
+    }).join('')}</tr>`).join('') + '</tbody>';
+    $('#slotHint').textContent = vids.length ? `${vids.length} Videos ausgewertet, Uhrzeiten in deutscher Zeit.` : 'Für diese Auswahl gibt es keine Videos, die älter als 3 Tage sind.';
+  }
+
 
   load();
 })();

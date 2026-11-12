@@ -11,7 +11,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@500;600;700&family=Figtree:wght@400;600;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="style.css?v=5">
+  <link rel="stylesheet" href="style.css?v=6">
 </head>
 <body>
   <canvas id="sky" aria-hidden="true"></canvas>
@@ -32,6 +32,7 @@
         <button data-tab="videos">Videos</button>
         <button data-tab="growth">Wachstum</button>
         <button data-tab="content">Content</button>
+        <button data-tab="ideas">Ideen</button>
       </nav>
     </div>
   </header>
@@ -134,11 +135,67 @@
       <div class="table-wrap"><table id="lengthTable"></table></div>
       <h2>Titel-Muster</h2>
       <div class="table-wrap"><table id="titleTable"></table></div>
+
+      <h2>Start neuer Videos</h2>
+      <p id="startHint" class="muted small"></p>
+      <div id="startBox" class="chart-box"><canvas id="startChart"></canvas></div>
+      <div id="startWrap" class="table-wrap start-table"><table id="startTable"></table></div>
+
+      <h2>Upload-Zeitpunkt und Erfolg</h2>
+      <p class="muted small">Jedes Feld zeigt den Median-×-Wert der Videos, die zu diesem Wochentag und dieser Uhrzeit hochgeladen wurden. Je heller, desto besser liefen sie im Vergleich zum Kanal. Die kleine Zahl ist die Anzahl der Videos.</p>
+      <div class="row"><select id="slotChannel" aria-label="Kanal"></select></div>
+      <p id="slotHint" class="muted small"></p>
+      <div class="table-wrap"><table id="slotTable" class="heat"></table></div>
+    </section>
+
+    <section id="ideas" class="tab" hidden>
+      <h2>Merkliste <span id="savedCount" class="muted small"></span></h2>
+      <div class="row actions">
+        <button type="button" id="copySaved" class="btn">Als Text kopieren</button>
+        <button type="button" id="exportSaved" class="btn">Exportieren</button>
+        <label class="btn">Importieren<input id="importSaved" type="file" accept="application/json,.json" hidden></label>
+      </div>
+      <div id="savedList" class="saved-list"></div>
+
+      <h2>Was in Titeln funktioniert</h2>
+      <div class="row">
+        <select id="iChannel" aria-label="Kanal"></select>
+        <select id="iFormat" aria-label="Format">
+          <option value="all">Alle Formate</option>
+          <option value="video">Videos</option>
+          <option value="short">Shorts</option>
+          <option value="live">Livestreams</option>
+        </select>
+        <select id="iRange" aria-label="Veröffentlicht">
+          <option value="0">Alle Zeit</option>
+          <option value="90">Letzte 90 Tage</option>
+          <option value="365">Letztes Jahr</option>
+        </select>
+        <select id="topicSort" aria-label="Sortierung">
+          <option value="med">Stärkste Begriffe zuerst</option>
+          <option value="n">Häufigste Begriffe zuerst</option>
+          <option value="weak">Schwächste Begriffe zuerst</option>
+        </select>
+      </div>
+      <p id="topicHint" class="muted small"></p>
+      <div class="table-wrap"><table id="topicTable" class="topics"></table></div>
+
+      <h2>Thumbnail-Wand</h2>
+      <p class="muted small">Die Filter oben gelten auch hier. Mit dem Stern setzt du ein Video auf die Merkliste.</p>
+      <div class="row">
+        <select id="wallSort" aria-label="Sortierung">
+          <option value="outlier">Überperformer zuerst</option>
+          <option value="views">Meiste Aufrufe</option>
+          <option value="recent">Neueste</option>
+        </select>
+      </div>
+      <div id="wall" class="wall"></div>
+      <button type="button" id="wallMore" class="more" hidden>Mehr anzeigen</button>
     </section>
   </main>
 
   <script src="vendor/chart.umd.js"></script>
-  <script src="sky.js?v=5"></script>
-  <script src="app.js?v=5"></script>
+  <script src="sky.js?v=6"></script>
+  <script src="app.js?v=6"></script>
 </body>
 </html>

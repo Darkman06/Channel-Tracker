@@ -46,6 +46,11 @@ for (const def of channelDefs) {
     if (age >= 1) v.g1 = Math.round(rate);
     if (age >= 7) v.g7 = Math.round(rate * 6.5);
     if (age >= 28) v.g28 = Math.round(rate * 22);
+    if (age < 60) { // Start-Werte nur für Videos aus der "Tracking-Zeit"
+      if (age >= 1) v.e1 = Math.round(views * between(0.22, 0.42));
+      if (age >= 3) v.e3 = Math.round(views * between(0.45, 0.65));
+      if (age >= 7) v.e7 = Math.round(views * between(0.65, 0.85));
+    }
     videos.push(v);
     t -= (7 / def.perWeek) * 86400000 * between(0.4, 1.6);
   }
